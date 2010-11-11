@@ -7,11 +7,14 @@ extern "C" {
 }
 #include <algorithm>
 #include <iostream>
+#include <cassert>
 
 ros::Publisher pointCloudPub;
 ros::Publisher imagePub;
 
 using namespace std;
+
+float t_gamma[2048];
 
 extern "C" void depthimg(uint16_t *buf, int width, int height)
 {
@@ -26,14 +29,17 @@ extern "C" void depthimg(uint16_t *buf, int width, int height)
 	cloud->header.stamp = ros::Time::now();
 	cloud->header.frame_id = "/kinect";
 	
-	cloud->points.reserve(320*240)
+	cloud->points.reserve(320*240);
 	for (int y=0; y<480; y+=2) {
 		for (int x=0; x<640; x+=2) {
-			const uint16_t val(buf[y*640+x]);
+			const int index(y*640+x);
+			const uint16_t rawVal(buf[index]);
+			assert (rawVal < 2048);
+			const float correctedVal(t_gamma[rawVal]);
 			//if (val < 1280)
 			{
 				// FIXME: find value for z ratio
-				const float dist(float(val)/300.f);
+				const float dist(correctedVal * 0.01f);
 				const float angXimg((float(x) * hf)/float(640) - hf/2);
 				const float angYimg(-(float(y) * vf)/float(480) + vf/2);
 				// FIXME: find someone fluent with vision to check these hacky transforms 
@@ -65,6 +71,14 @@ extern "C" void rgbimg(uint8_t *buf, int width, int height)
 
 int main(int argc, char **argv)
 {
+	// static stuff
+	for (size_t i=0; i<2048; i++)
+	{
+		float v = float(i)/2048.0f;
+		v = powf(v, 3.f)* 6.f;
+		t_gamma[i] = v*6.f*256.f;
+	}
+	
 	// libusb stuff
 	libusb_init(NULL);
 	libusb_device_handle *dev = libusb_open_device_with_vid_pid(NULL, 0x45e, 0x2ae);
