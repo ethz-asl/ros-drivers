@@ -1,0 +1,16 @@
+<package>
+  <description brief="microsoft_kinect">
+
+     ROS driver for Microsoft Kinect depth sensor and VGA camera.
+
+  </description>
+  <author>Stéphane Magnenat</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/microsoft_kinect</url>
+  <depend package="sensor_msgs"/>
+  <depend package="roscpp"/>
+
+</package>
+
+
