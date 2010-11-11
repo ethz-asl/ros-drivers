@@ -1,0 +1,36 @@
+From 8153e3f31dc47be9b0c9bb32dadce3f1bc42f541 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?St=C3=A9phane=20Magnenat?= <stephane@magnenat.net>
+Date: Thu, 11 Nov 2010 21:25:30 +0100
+Subject: [PATCH] Fixed memory trash.
+
+---
+ lib/cameras.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/lib/cameras.c b/lib/cameras.c
+index 918941a..51adced 100644
+--- a/lib/cameras.c
++++ b/lib/cameras.c
+@@ -128,15 +128,15 @@ static void rgb_process(uint8_t *buf, size_t len)
+ 				} else {
+ 					rgb_frame[3*i] = rgb_buf[i];
+ 					rgb_frame[3*i+3] = rgb_buf[i];
+-					rgb_frame[3*(i-640)] = rgb_buf[i];
+-					rgb_frame[3*(i-640)+3] = rgb_buf[i];
++					rgb_frame[3*(i+640)] = rgb_buf[i];
++					rgb_frame[3*(i+640)+3] = rgb_buf[i];
+ 				}
+ 			} else {
+ 				if (y&1) {
+ 					rgb_frame[3*i+2] = rgb_buf[i];
+ 					rgb_frame[3*i-1] = rgb_buf[i];
+-					rgb_frame[3*(i+640)+2] = rgb_buf[i];
+-					rgb_frame[3*(i+640)-1] = rgb_buf[i];
++					rgb_frame[3*(i-640)+2] = rgb_buf[i];
++					rgb_frame[3*(i-640)-1] = rgb_buf[i];
+ 				} else {
+ 					rgb_frame[3*i+1] = rgb_buf[i];
+ 					rgb_frame[3*i-2] = rgb_buf[i];
+-- 
+1.7.1
+
