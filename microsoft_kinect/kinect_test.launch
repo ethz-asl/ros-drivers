@@ -1,0 +1,7 @@
+<launch>
+	<node name="microsoft_kinect" pkg="microsoft_kinect" type="microsoft_kinect" output="screen">
+	</node>
+	
+	<node name="tf_FRAMEID_LASER" pkg="tf" type="static_transform_publisher" args="0.0 0.0 0.0 0.0 0.0 0 /map /kinect 500" respawn="false" output="screen"/>
+
+</launch>

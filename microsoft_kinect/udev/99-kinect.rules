@@ -1,0 +1,3 @@
+#Rule for Kinect, taken from Alex Trevor's driver
+
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="045e", SYMLINK+=kinect, MODE="666"
