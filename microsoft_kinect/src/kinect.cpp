@@ -1,10 +1,18 @@
+/*
+	kinect ROS driver by Stephane Magnenat, ASL, ETHZ
+	inspired by the work of:
+		Hector Martin
+		Alex Trevor
+		Ivan Dryanovski
+		William Morris
+*/
 #include "ros/ros.h"
 #include "sensor_msgs/PointCloud.h"
 #include "sensor_msgs/Image.h"
+#include "geometry_msgs/Vector3.h"
 #include <libusb.h>
-extern "C" {
 #include "libfreenect.h"
-}
+#include <boost/thread/thread.hpp>
 #include <algorithm>
 #include <iostream>
 #include <cassert>
@@ -13,12 +21,16 @@ extern "C" {
 
 ros::Publisher pointCloudPub;
 ros::Publisher imagePub;
+ros::Publisher depthImagePub;
+ros::Publisher accPub;
 
 using namespace std;
 
 float t_gamma[2048];
 
 static int depthCounter = 0;
+
+uint8_t rgbImg[640*480*3];
 
 extern "C" void depthimg(uint16_t *buf, int width, int height)
 {
@@ -29,11 +41,29 @@ extern "C" void depthimg(uint16_t *buf, int width, int height)
 	const float hf(horizontalFOVd * deg2rad);
 	const float vf(verticalFOVd * deg2rad);
 	
+	// depth image
+	sensor_msgs::ImagePtr depthImg(new sensor_msgs::Image);
+	depthImg->header.stamp = ros::Time::now();
+	depthImg->height = height;
+	depthImg->width = width;
+	depthImg->encoding = "mono8";
+	depthImg->step = width;
+	depthImg->data.reserve(width*height);
+	uint16_t *srcBuf(buf);
+	for (size_t i = 0; i < width*height; ++i)
+	{
+		depthImg->data.push_back((*srcBuf++) / 8);
+	}
+	depthImagePub.publish(depthImg);
+	
+	// point cloud
 	sensor_msgs::PointCloudPtr cloud(new sensor_msgs::PointCloud);
 	cloud->header.stamp = ros::Time::now();
 	cloud->header.frame_id = "/kinect";
-	
 	cloud->points.reserve(320*240);
+	cloud->channels.resize(1);
+	cloud->channels[0].name = "rgb";
+	cloud->channels[0].values.reserve(320*240);
 	for (int y=0; y<480; y+=2) {
 		for (int x=0; x<640; x+=2) {
 			const int index(y*640+x);
@@ -41,24 +71,26 @@ extern "C" void depthimg(uint16_t *buf, int width, int height)
 			assert (rawVal < 2048);
 			if (rawVal < 2047)
 			{
-			const float correctedVal(t_gamma[rawVal]);
-			//if (val < 1280)
-			{
-				// FIXME: find value for z ratio
-				const float dist(correctedVal * 0.01f);
+				const float dist(t_gamma[rawVal]);
 				const float angXimg(-(float(x) * hf)/float(640) + hf/2);
 				const float angYimg(-(float(y) * vf)/float(480) + vf/2);
-				// FIXME: find someone fluent with vision to check these hacky transforms 
 				geometry_msgs::Point32 rosPoint;
-				//rosPoint.x = cos(angXimg)*cos(angYimg) * dist;
 				rosPoint.x = 1 * dist;
 				rosPoint.y = tan(angXimg) * dist;
 				rosPoint.z = tan(angYimg) * dist;
 				cloud->points.push_back(rosPoint);
-			}
+				const uint8_t *rgbPtr = &rgbImg[index*3];
+				const unsigned r = *rgbPtr++;
+				const unsigned g = *rgbPtr++;
+				const unsigned b = *rgbPtr++;
+				const unsigned composed = (r << 16) | (g << 8) | b;
+				//const unsigned composed = 0xffffff;
+				cloud->channels[0].values.push_back(*reinterpret_cast<const float*>(&composed));
 			}
 		}
 	}
+	
+	// dump
 	bool dump;
 	ros::param::get("dumpKinect", dump);
 	if (dump && ((++depthCounter % 32) == 0))
@@ -66,13 +98,36 @@ extern "C" void depthimg(uint16_t *buf, int width, int height)
 		ostringstream oss;
 		oss << "/tmp/depth-dump-" << (depthCounter / 32) << ".txt";
 		ofstream ofs(oss.str().c_str());
-		uint16_t *b = buf;
+		uint16_t *dPtr = buf;
 		for (int y=0; y<480; y++) {
 			for (int x=0; x<640; x++) {
-				ofs << *b++ << "\n";
+				ofs << *dPtr++ << "\n";
 			}
 		}
+		
+		ostringstream oss2;
+		oss2 << "/tmp/color-dump-" << (depthCounter / 32) << ".ppm";
+		ofstream ofs2(oss2.str().c_str());
+		ofs2 << "P3\n";
+		ofs2 << "640 480\n";
+		ofs2 << "255\n";
+		uint8_t *rgbPtr = rgbImg;
+		for (int y=0; y<480; y++) {
+			for (int x=0; x<640; x++) {
+				const unsigned r = *rgbPtr++;
+				const unsigned g = *rgbPtr++;
+				const unsigned b = *rgbPtr++;
+				ofs2 << r << " " << g << " " << b << "    ";
+			}
+			ofs2 << "\n";
+		}
 	}
+	
+	// show accel
+	/*int16_t ax,ay,az;
+	acc_get(&ax, &ay, &az);
+	ROS_INFO_STREAM("Acceleration: " << ax << ", " << ay << ", " << az);
+	*/
 	//cerr << "publishing " << cloud->points.size() << " points" << endl;
 	
 	pointCloudPub.publish(cloud);
@@ -88,7 +143,14 @@ extern "C" void rgbimg(uint8_t *buf, int width, int height)
 	img->step = width * 3;
 	img->data.reserve(width*height*3);
 	copy(buf, buf + width*height*3, back_inserter(img->data));
+	copy(buf, buf + width*height*3, rgbImg);
 	imagePub.publish(img);
+}
+
+void libusbThread()
+{
+	ros::Duration(0.01).sleep();
+	while(libusb_handle_events(NULL) == 0);
 }
 
 int main(int argc, char **argv)
@@ -100,36 +162,50 @@ int main(int argc, char **argv)
 		const float k2 = 2842.5;
 		const float k3 = 0.1236;
 		const float depth = k3 * tanf(i/k2 + k1);
-		
-		//float v = float(i)/2048.0f;
-		//v = powf(v, 3.f)* 1.f;
-		t_gamma[i] = 100 * depth;// * 1000;//*6.f*256.f;
+		t_gamma[i] = depth;
 	}
 	
 	// libusb stuff
 	libusb_init(NULL);
-	libusb_device_handle *dev = libusb_open_device_with_vid_pid(NULL, 0x45e, 0x2ae);
-	if (!dev)
+	libusb_device_handle *cam_dev = libusb_open_device_with_vid_pid(NULL, 0x45e, 0x2ae);
+	if (!cam_dev)
 	{
-		printf("Could not open device\n");
+		printf("Could not open cam device\n");
 		return 1;
+	}
+	libusb_device_handle *acc_tilt_dev = libusb_open_device_with_vid_pid(NULL, 0x45e, 0x2b0);
+	if (!acc_tilt_dev)
+	{
+		printf("Could not open acc/tilt device\n");
+		return 2;
 	}
 	
 	// ROS stuff
-	ros::init(argc, argv, "microsoft_kinect");
+	ros::init(argc, argv, "kinect");
 	ros::NodeHandle n;
-	pointCloudPub = n.advertise<sensor_msgs::PointCloud>("cloud", 16);
-	imagePub = n.advertise<sensor_msgs::Image>("image", 16);
+	pointCloudPub = n.advertise<sensor_msgs::PointCloud>("kinect/cloud", 16);
+	imagePub = n.advertise<sensor_msgs::Image>("kinect/image", 16);
+	depthImagePub = n.advertise<sensor_msgs::Image>("kinect/depth_image", 16);
+	accPub = n.advertise<geometry_msgs::Vector3>("kinect/acc", 16);
 	
 	// start acquisition
-	cams_init(dev, depthimg, rgbimg);
+	acc_init(acc_tilt_dev);
+	cams_init(cam_dev, depthimg, rgbimg);
+	
+	boost::thread spin_thread = boost::thread(boost::bind(&libusbThread));
 	
 	// ros spin
+	//ros::spin();
 	while (ros::ok())
 	{
 		ros::spinOnce();
-		if (libusb_handle_events(NULL) != 0)
-			break;
+		int16_t ax,ay,az;
+		acc_get(&ax, &ay, &az);
+		geometry_msgs::Vector3 acc;
+		acc.x = float(ax);
+		acc.y = float(ay);
+		acc.z = float(az);
+		accPub.publish(acc);
 	}
 	
 	return 0;
