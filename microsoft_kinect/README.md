@@ -1,8 +1,7 @@
-ROS driver for Microsoft Kinect depth sensor and VGA camera.
+ROS driver for Microsoft Kinect depth sensor, VGA camera, accelerometer and tilt motor.
 
-This driver uses libfreenect, which is under heavy development.
-There are some patches against libfreenect's git in the `libfreenect-patches/` directory.
-Please apply these patches to libfreenect before compiling this driver.
+This driver uses libfreenect. You have to use my patched version, whose git is available at:
+	http://github.com/stephanemagnenat/libfreenect
 
 You currently have to manually setup libfreenect using ccmake or cmake-gui in the `build/`
-directory. I will provide a package for libfreenect when it will be more stable.
+directory. I will provide a package for libfreenect in the futur.
