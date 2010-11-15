@@ -8,6 +8,8 @@ extern "C" {
 #include <algorithm>
 #include <iostream>
 #include <cassert>
+#include <fstream>
+#include <sstream>
 
 ros::Publisher pointCloudPub;
 ros::Publisher imagePub;
@@ -15,6 +17,8 @@ ros::Publisher imagePub;
 using namespace std;
 
 float t_gamma[2048];
+
+static int depthCounter = 0;
 
 extern "C" void depthimg(uint16_t *buf, int width, int height)
 {
@@ -35,23 +39,41 @@ extern "C" void depthimg(uint16_t *buf, int width, int height)
 			const int index(y*640+x);
 			const uint16_t rawVal(buf[index]);
 			assert (rawVal < 2048);
+			if (rawVal < 2047)
+			{
 			const float correctedVal(t_gamma[rawVal]);
 			//if (val < 1280)
 			{
 				// FIXME: find value for z ratio
 				const float dist(correctedVal * 0.01f);
-				const float angXimg((float(x) * hf)/float(640) - hf/2);
+				const float angXimg(-(float(x) * hf)/float(640) + hf/2);
 				const float angYimg(-(float(y) * vf)/float(480) + vf/2);
 				// FIXME: find someone fluent with vision to check these hacky transforms 
 				geometry_msgs::Point32 rosPoint;
+				//rosPoint.x = cos(angXimg)*cos(angYimg) * dist;
 				rosPoint.x = 1 * dist;
-				rosPoint.y = tanf(angXimg) * dist;
-				rosPoint.z = tanf(angYimg) * dist;
+				rosPoint.y = tan(angXimg) * dist;
+				rosPoint.z = tan(angYimg) * dist;
 				cloud->points.push_back(rosPoint);
+			}
 			}
 		}
 	}
-	cerr << "publishing " << cloud->points.size() << " points" << endl;
+	bool dump;
+	ros::param::get("dumpKinect", dump);
+	if (dump && ((++depthCounter % 32) == 0))
+	{
+		ostringstream oss;
+		oss << "/tmp/depth-dump-" << (depthCounter / 32) << ".txt";
+		ofstream ofs(oss.str().c_str());
+		uint16_t *b = buf;
+		for (int y=0; y<480; y++) {
+			for (int x=0; x<640; x++) {
+				ofs << *b++ << "\n";
+			}
+		}
+	}
+	//cerr << "publishing " << cloud->points.size() << " points" << endl;
 	
 	pointCloudPub.publish(cloud);
 }
@@ -74,9 +96,14 @@ int main(int argc, char **argv)
 	// static stuff
 	for (size_t i=0; i<2048; i++)
 	{
-		float v = float(i)/2048.0f;
-		v = powf(v, 3.f)* 6.f;
-		t_gamma[i] = v*6.f*256.f;
+		const float k1 = 1.1863;
+		const float k2 = 2842.5;
+		const float k3 = 0.1236;
+		const float depth = k3 * tanf(i/k2 + k1);
+		
+		//float v = float(i)/2048.0f;
+		//v = powf(v, 3.f)* 1.f;
+		t_gamma[i] = 100 * depth;// * 1000;//*6.f*256.f;
 	}
 	
 	// libusb stuff
