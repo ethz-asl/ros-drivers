@@ -9,6 +9,7 @@
 #include "ros/ros.h"
 #include "sensor_msgs/PointCloud.h"
 #include "sensor_msgs/Image.h"
+#include "std_msgs/Int16.h"
 #include "geometry_msgs/Vector3.h"
 #include <libusb.h>
 #include "libfreenect.h"
@@ -23,6 +24,8 @@ ros::Publisher pointCloudPub;
 ros::Publisher imagePub;
 ros::Publisher depthImagePub;
 ros::Publisher accPub;
+ros::Subscriber tiltSub;
+
 
 using namespace std;
 
@@ -153,6 +156,12 @@ void libusbThread()
 	while(libusb_handle_events(NULL) == 0);
 }
 
+void tiltCallback(const std_msgs::Int16& msg)
+{
+	tilt_set_pos(msg.data);
+	ROS_INFO_STREAM("can tilt cmd: " << msg.data);
+}
+
 int main(int argc, char **argv)
 {
 	// static stuff
@@ -180,7 +189,7 @@ int main(int argc, char **argv)
 		return 2;
 	}
 	
-	// ROS stuff
+	// ROS node and publisher init
 	ros::init(argc, argv, "kinect");
 	ros::NodeHandle n;
 	pointCloudPub = n.advertise<sensor_msgs::PointCloud>("kinect/cloud", 16);
@@ -189,8 +198,11 @@ int main(int argc, char **argv)
 	accPub = n.advertise<geometry_msgs::Vector3>("kinect/acc", 16);
 	
 	// start acquisition
-	acc_init(acc_tilt_dev);
+	acc_tilt_init(acc_tilt_dev);
 	cams_init(cam_dev, depthimg, rgbimg);
+	
+	// register to subscriber
+	tiltSub = n.subscribe("kinect/tilt", 2, tiltCallback);
 	
 	boost::thread spin_thread = boost::thread(boost::bind(&libusbThread));
 	
