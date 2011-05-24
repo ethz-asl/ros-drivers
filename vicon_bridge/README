@@ -1,0 +1,50 @@
+This is the vicon_mocap package for ROS.
+License: BSD
+Author: Patrick Bouffard <bouffard@eecs.berkeley.edu>
+
+PREREQUISITES
+Vicon DataStream SDK
+- libViconDataStreamSDK_CPP.so should be somewhere the linker can find it, e.g. /usr/local/lib
+ROS C-Turtle or Unstable (Diamondback)
+
+QUICK START
+roslaunch vicon_mocap test.launch
+
+OPERATION
+The vicon_recv_direct node initiates a connection with the Vicon data source (e.g. Nexus or Tracker)
+via the DataStream API. The parameter ~hostname should be set to the IP address and port (joined with a colon)
+of the DataStream server machine. The parameter ~stream_mode is used for the call to the DataStream SetStreamMode method;
+valid values are "ServerPush", "ClientPull", "ClientPullPreFetch". The parameter ~update_rate is the rate, in
+Hz, at which the node will call the DataStream GetFrame method. The parameters ~subject_name and ~segment_name
+indicate the VICON Subject, and the Segment of that subject, that is being tracked. Whenever GetFrame() returns
+success, a TF Broadcaster will send out the pose of the specified segment in the VICON world frame, using the
+frame id from the parameter ~tf_ref_frame_id as the reference frame (frame_id) and the child frame id from the 
+parameter ~tf_tracked_frame_id.
+
+GRAB POSE SERVICE
+The node advertises a service, ~grab_vicon_pose, that will return the pose of a specified segment.
+Example usage:
+$ rosservice call /vicon_recv_direct/grab_vicon_pose pelican1 pelican1 1000
+success: True
+pose: 
+  header: 
+    seq: 0
+    stamp: 
+      secs: 1289418599
+      nsecs: 858034203
+    frame_id: ''
+  pose: 
+    position: 
+      x: 0.00610878321065
+      y: 0.0112927297996
+      z: 0.235271978581
+    orientation: 
+      x: 0.509382889312
+      y: 0.489074830327
+      z: -0.505642803131
+      w: 0.495641239263
+
+DIAGNOSTICS
+The node also broadcasts on /diagnostics some (at present very limited) diagnostics data that can be viewed with,
+e.g. the monitor node in the runtime_monitor package (diagnostics stack).
+
