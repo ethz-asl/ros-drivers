@@ -442,8 +442,9 @@ private:
     string tracked_frame, subject_name, segment_name;
     unsigned int n_subjects = msvcbridge::GetSubjectCount().SubjectCount;
     SegmentMap::iterator pub_it;
-    tf::StampedTransform transform;
-    geometry_msgs::TransformStamped pose_msg;
+    tf::Transform transform;
+    std::vector<tf::StampedTransform, std::allocator<tf::StampedTransform> > transforms;
+    geometry_msgs::TransformStampedPtr pose_msg(new geometry_msgs::TransformStamped);
     static unsigned int cnt = 0;
 
     for (unsigned int i_subjects = 0; i_subjects < n_subjects; i_subjects++)
@@ -464,9 +465,9 @@ private:
         {
           if (!trans.Occluded && !quat.Occluded)
           {
-            flyer_transform.setOrigin(tf::Vector3(trans.Translation[0] / 1000, trans.Translation[1] / 1000,
+            transform.setOrigin(tf::Vector3(trans.Translation[0] / 1000, trans.Translation[1] / 1000,
                                                   trans.Translation[2] / 1000));
-            flyer_transform.setRotation(tf::Quaternion(quat.Rotation[0], quat.Rotation[1], quat.Rotation[2],
+            transform.setRotation(tf::Quaternion(quat.Rotation[0], quat.Rotation[1], quat.Rotation[2],
                                                        quat.Rotation[3]));
 
             tracked_frame = tracked_frame_suffix_ + "/" + subject_name + "/" + segment_name;
@@ -483,10 +484,11 @@ private:
 
                 if (seg.is_ready)
                 {
-                  flyer_transform = flyer_transform * seg.calibration_pose;
-                  transform = tf::StampedTransform(flyer_transform, frame_time, tf_ref_frame_id_, tracked_frame);
-                  tf_broadcaster_.sendTransform(transform);
-                  tf::transformStampedTFToMsg(transform, pose_msg);
+                  transform = transform * seg.calibration_pose;
+                  transforms.push_back(tf::StampedTransform(transform, frame_time, tf_ref_frame_id_, tracked_frame));
+//                  transform = tf::StampedTransform(flyer_transform, frame_time, tf_ref_frame_id_, tracked_frame);
+//                  tf_broadcaster_.sendTransform(transform);
+                  tf::transformStampedTFToMsg(transforms.back(), *pose_msg);
                   seg.pub.publish(pose_msg);
                 }
               }
@@ -511,6 +513,7 @@ private:
       }
     }
 
+    tf_broadcaster_.sendTransform(transforms);
     cnt++;
   }
 
@@ -728,7 +731,7 @@ int main(int argc, char** argv)
 //  ViconReceiver vr;
 //  ros::spin();
 
-  ros::AsyncSpinner aspin(0);
+  ros::AsyncSpinner aspin(1);
   aspin.start();
   ViconReceiver vr;
   aspin.stop();
