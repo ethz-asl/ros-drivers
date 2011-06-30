@@ -359,10 +359,10 @@ private:
   void grabThread()
   {
     ros::Duration d(1.0 / 240.0);
-    ros::Time last_time = ros::Time::now();
-    double fps = 100.;
-    ros::Duration diff;
-    std::stringstream time_log;
+//    ros::Time last_time = ros::Time::now();
+//    double fps = 100.;
+//    ros::Duration diff;
+//    std::stringstream time_log;
     while (ros::ok() && grab_frames_)
     {
       while (msvcbridge::GetFrame().Result != Result::Success)
@@ -371,15 +371,14 @@ private:
         d.sleep();
       }
       now_time = ros::Time::now();
-      //      diff = now_time-last_time;
-      //      fps = 1.0/(0.9/fps + 0.1*diff.toSec());
-      //      time_log.clear();
-      //      time_log.str("");
-      //      time_log <<"timings: dt="<<diff<<" fps=" <<fps;
-      //      time_log_.push_back(time_log.str());
+//      diff = now_time-last_time;
+//      fps = 1.0/(0.9/fps + 0.1*diff.toSec());
+//      time_log.clear();
+//      time_log.str("");
+//      time_log <<"timings: dt="<<diff<<" fps=" <<fps;
+//      time_log_.push_back(time_log.str());
+//      last_time = now_time;
 
-
-      last_time = now_time;
       bool was_new_frame = process_frame();
       ROS_WARN_COND(!was_new_frame, "grab frame returned false");
 
