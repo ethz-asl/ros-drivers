@@ -16,6 +16,10 @@
 
 #include <Client.h>
 
+/***
+ * This was the desperate try to get this compiled for windows so that it can be executed on the PC running Tracker.
+ * Mingw doesn't like the datastreamsdk lib for windows which is compiled with visual studio, so this was meant as a bridging library ...
+ */
 
 namespace msvcbridge{
 

@@ -2,6 +2,7 @@
  * Software License Agreement (BSD License)
  *
  *  Copyright (c) 2010, UC Regents
+ *  Copyright (c) 2011, Markus Achtelik, ETH Zurich, Autonomous Systems Lab (modifications)
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -154,7 +155,7 @@ private:
   diagnostic_updater::Updater diag_updater;
   double min_freq_;
   double max_freq_;
-  diagnostic_updater::FrequencyStatus freq_status;
+  diagnostic_updater::FrequencyStatus freq_status_;
   // Parameters:
   string stream_mode_;
   string host_name_;
@@ -205,7 +206,7 @@ public:
 
   ViconReceiver() :
     nh_priv("~"), diag_updater(), min_freq_(0.1), max_freq_(1000),
-        freq_status(diagnostic_updater::FrequencyStatusParam(&min_freq_, &max_freq_)), stream_mode_("ClientPull"),
+        freq_status_(diagnostic_updater::FrequencyStatusParam(&min_freq_, &max_freq_)), stream_mode_("ClientPull"),
         host_name_(""), tf_ref_frame_id_("/world"), tracked_frame_suffix_("vicon"),
         lastFrameNumber(0), frameCount(0), droppedFrameCount(0), frame_datum(0), n_markers(0), n_unlabeled_markers(0),
         marker_data_enabled(false), unlabeled_marker_data_enabled(false), grab_frames_(false)
@@ -213,7 +214,7 @@ public:
   {
     // Diagnostics
     diag_updater.add("ViconReceiver Status", this, &ViconReceiver::diagnostics);
-    diag_updater.add(freq_status);
+    diag_updater.add(freq_status_);
     diag_updater.setHardwareID("none");
     diag_updater.force_update();
     // Parameters
@@ -274,6 +275,7 @@ private:
     ROS_ASSERT(msvcbridge::IsConnected().Connected);
     ROS_INFO_STREAM("... connected!");
 
+    // ClientPullPrefetch doesn't make much sense here, since we're only forwarding the data
     if (stream_mode_ == "ServerPush")
     {
       result = msvcbridge::SetStreamMode(StreamMode::ServerPush).Result;
@@ -282,13 +284,9 @@ private:
     {
       result = msvcbridge::SetStreamMode(StreamMode::ClientPull).Result;
     }
-    else if (stream_mode_ == "ClientPullPreFetch")
-    {
-      result = msvcbridge::SetStreamMode(StreamMode::ClientPullPreFetch).Result;
-    }
     else
     {
-      ROS_FATAL("Unknown stream mode -- options are ServerPush, ClientPull, ClientPullPreFetch");
+      ROS_FATAL("Unknown stream mode -- options are ServerPush, ClientPull");
       ros::shutdown();
     }
 
@@ -365,7 +363,7 @@ private:
 //    std::stringstream time_log;
     while (ros::ok() && grab_frames_)
     {
-      while (msvcbridge::GetFrame().Result != Result::Success)
+      while (msvcbridge::GetFrame().Result != Result::Success && ros::ok())
       {
         ROS_INFO("getFrame returned false");
         d.sleep();
@@ -425,7 +423,7 @@ private:
     }
     else
     {
-      freq_status.tick();
+      freq_status_.tick();
       ros::Duration vicon_latency(msvcbridge::GetLatencyTotal().Total);
 
       process_subjects(now_time - vicon_latency);
