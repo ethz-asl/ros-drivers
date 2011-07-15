@@ -17,6 +17,11 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 rosbuild_genmsg()
 rosbuild_gensrv()
 
+# Generate dynamic parameters
+rosbuild_find_ros_package(dynamic_reconfigure)
+include(${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake)
+gencfg()
+
 # check for platform
 if(CMAKE_SIZEOF_VOID_P MATCHES "8")
     set(VICON_SDK             vicon_sdk/vicon_datastream_SDK_1.2.59611_x64)
@@ -39,6 +44,8 @@ rosbuild_add_executable(vicon_bridge src/vicon_bridge.cpp)
 target_link_libraries(vicon_bridge msvc_bridge ViconDataStreamSDK_CPP)
 
 rosbuild_add_executable(calibrate src/calibrate_segment.cpp)
+
+rosbuild_add_executable(tf_distort src/tf_distort.cpp)
 
 rosbuild_add_executable(testclient src/ViconDataStreamSDK_CPPTest.cpp)
 target_link_libraries(testclient ViconDataStreamSDK_CPP)

@@ -12,7 +12,8 @@
   <depend package="roscpp"/>
   <depend package="tf"/>
   <depend package="geometry_msgs"/>
-  <depend package="diagnostic_updater"/>  
+  <depend package="diagnostic_updater"/> 
+  <depend package="dynamic_reconfigure"/>  
 </package>
 
 
