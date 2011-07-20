@@ -47,5 +47,7 @@ rosbuild_add_executable(calibrate src/calibrate_segment.cpp)
 
 rosbuild_add_executable(tf_distort src/tf_distort.cpp)
 
+rosbuild_add_executable(frame_align src/frame_align.cpp)
+
 rosbuild_add_executable(testclient src/ViconDataStreamSDK_CPPTest.cpp)
 target_link_libraries(testclient ViconDataStreamSDK_CPP)
