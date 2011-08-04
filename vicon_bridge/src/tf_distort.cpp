@@ -1,15 +1,40 @@
 /*
- * TfDistort.cpp
- *
- *  Created on: Jun 8, 2011
- *      Author: acmarkus
- */
+
+Copyright (c) 2011, Markus Achtelik, ASL, ETH Zurich, Switzerland
+You can contact the author at <markus dot achtelik at mavt dot ethz dot ch>
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+* Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+* Neither the name of ETHZ-ASL nor the
+names of its contributors may be used to endorse or promote products
+derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL ETHZ-ASL BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+*/
+
 
 #include "tf_distort.h"
 
 namespace tf_distort{
 
-void whiteGaussianNoise(double * n1, double * n2)
+inline void whiteGaussianNoise(double * n1, double * n2)
 {
   // Box Muller Method - from http://www.dspguru.com/dsp/howtos/how-to-generate-white-gaussian-noise
   double v1, v2, s;
@@ -26,6 +51,10 @@ void whiteGaussianNoise(double * n1, double * n2)
     *n2 = sqrt(-2.0 * log(s) / s) * v2;
 }
 
+inline double uniformNoise(const double & mag = 1)
+{
+  return (static_cast<double> (rand()) / rand_max_ * 2.0 - 1.0) * mag;
+}
 
 TfDistort::TfDistort() :
   nh_(""), pnh_("~")
@@ -134,21 +163,20 @@ void TfDistort::tfCb()
   tf::StampedTransform pose;
   static tf::StampedTransform last_pose;
   ros::Time tf_time(0);
-  ros::Time time_now = ros::Time::now();
 
   if (tf_listener_.canTransform(config_.tf_ref_frame, config_.tf_frame_in, tf_time))
   {
     tf_listener_.lookupTransform(config_.tf_ref_frame, config_.tf_frame_in, tf_time, pose);
 
-    // ckeck if new pose
-    if (pose.getOrigin().x() != last_pose.getOrigin().x())
+    // check for new pose
+    if (pose.getOrigin() != last_pose.getOrigin())
     {
       last_pose = pose;
-      if (time_now - last_pub_time_ > pub_period_)
+      ros::Time time_now = ros::Time::now();
+      if ((time_now - last_pub_time_) > pub_period_)
       {
         pose.child_frame_id_ = config_.tf_frame_out;
         boost::mutex::scoped_lock(tf_queue_mutex_);
-        //        addNoise(pose);
         tf_queue_.push(DelayedTransform(pose, time_now + delay_));
         last_pub_time_ = time_now;
       }
@@ -192,7 +220,7 @@ void TfDistort::pubThread()
     }
     if (cnt > 1.0 / d.toSec())
     {
-      ROS_INFO("queue size: %d publishing at %d Hz", tf_queue_.size(), msg_cnt);
+//      ROS_INFO("queue size: %d publishing at %d Hz", tf_queue_.size(), msg_cnt);
       msg_cnt = 0;
       cnt = 0;
     }
