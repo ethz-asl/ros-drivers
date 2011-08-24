@@ -65,6 +65,8 @@ TfDistort::TfDistort() :
   reconf_srv_ = new ReconfServer(pnh_);
   reconf_srv_->setCallback(boost::bind(&TfDistort::reconfCb, this, _1, _2));
 
+  info_pub_ = nh_.advertise<vicon_bridge::TfDistortInfo>("tf_distort/info", 1);
+
   pub_thread_ = boost::thread(&TfDistort::pubThread, this);
 }
 
@@ -123,6 +125,8 @@ void TfDistort::addNoise(tf::StampedTransform & tf)
   p.setY(p.y() + noise_y);
   p.setZ(p.z() + noise_z);
 
+  p *= config_.position_scale;
+
   tf::Quaternion q;
   q.setRPY(noise_roll, noise_pitch, noise_yaw);
   tf.setRotation(tf.getRotation() * q);
@@ -155,6 +159,7 @@ void TfDistort::reconfCb(Config & config, uint32_t level)
   }
 
   config_ = config;
+  publishInfo(config_);
 }
 
 
@@ -223,8 +228,33 @@ void TfDistort::pubThread()
 //      ROS_INFO("queue size: %d publishing at %d Hz", tf_queue_.size(), msg_cnt);
       msg_cnt = 0;
       cnt = 0;
+
+      publishInfo(config_);
     }
   }
+}
+
+void TfDistort::publishInfo(const Config & config){
+  vicon_bridge::TfDistortInfoPtr info(new vicon_bridge::TfDistortInfo);
+  info->delay = config.delay;
+  info->noise_type = config.noise_type;
+  info->position_scale = config.position_scale;
+  info->random_walk_k_xy = config.random_walk_k_xy;
+  info->random_walk_k_z = config.random_walk_k_z;
+  info->random_walk_sigma_xy = config.random_walk_sigma_xy;
+  info->random_walk_sigma_z = config.random_walk_sigma_z;
+  info->random_walk_tau_xy = config.random_walk_tau_xy;
+  info->random_walk_tau_z = config.random_walk_tau_z;
+  info->sigma_roll_pitch = config.sigma_roll_pitch;
+  info->sigma_xy = config.sigma_xy;
+  info->sigma_yaw = config.sigma_yaw;
+  info->sigma_z = config.sigma_z;
+  info->tf_frame_in = config.tf_frame_in;
+  info->tf_frame_out = config.tf_frame_out;
+  info->tf_pub_rate = config.tf_pub_rate;
+  info->tf_ref_frame = config.tf_ref_frame;
+
+  info_pub_.publish(info);
 }
 
 }// end namespace tf_distort

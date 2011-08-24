@@ -45,6 +45,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <boost/thread.hpp>
 #include <boost/shared_ptr.hpp>
 
+#include <vicon_bridge/TfDistortInfo.h>
+
 namespace tf_distort{
 
 typedef dynamic_reconfigure::Server<vicon_bridge::tf_distortConfig> ReconfServer;
@@ -119,17 +121,19 @@ private:
   boost::mutex pose_pub_mutex_;
   boost::shared_ptr<ros::Publisher> pose_pub_; ///< pose publisher for convenience
 
-
   boost::thread pub_thread_;
 
   RandomWalk random_walk_x_;
   RandomWalk random_walk_y_;
   RandomWalk random_walk_z_;
 
+  ros::Publisher info_pub_;
+
   void pubThread();
   void tfCb();
   void reconfCb(Config & config, uint32_t level);
   void addNoise(tf::StampedTransform & transform);
+  void publishInfo(const Config & config);
 
 public:
   TfDistort();
