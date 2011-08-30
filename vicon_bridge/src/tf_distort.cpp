@@ -57,24 +57,38 @@ inline double uniformNoise(const double & mag = 1)
 }
 
 TfDistort::TfDistort() :
-  nh_(""), pnh_("~")
+  nh_(""), pnh_("~"), pub_thread_runnning_(false)
 {
   srand(ros::Time::now().toNSec());
+  info_pub_ = nh_.advertise<vicon_bridge::TfDistortInfo>("tf_distort/info", 1);
 
   // bring up dynamic reconfigure
   reconf_srv_ = new ReconfServer(pnh_);
   reconf_srv_->setCallback(boost::bind(&TfDistort::reconfCb, this, _1, _2));
 
-  info_pub_ = nh_.advertise<vicon_bridge::TfDistortInfo>("tf_distort/info", 1);
-
-  pub_thread_ = boost::thread(&TfDistort::pubThread, this);
+  startPubThread();
 }
 
 TfDistort::~TfDistort()
 {
+  stopPubThread();
   delete reconf_srv_;
 }
 
+void TfDistort::startPubThread()
+{
+  if (!pub_thread_runnning_)
+  {
+    pub_thread_runnning_ = true;
+    pub_thread_ = boost::thread(&TfDistort::pubThread, this);
+  }
+}
+
+void TfDistort::stopPubThread()
+{
+  pub_thread_runnning_ = false;
+  pub_thread_.join();
+}
 
 void TfDistort::addNoise(tf::StampedTransform & tf)
 {
@@ -152,10 +166,11 @@ void TfDistort::reconfCb(Config & config, uint32_t level)
   }
 
   if(config.tf_frame_out != config_.tf_frame_out){
-    boost::mutex::scoped_lock lock(pose_pub_mutex_);
     ros::NodeHandle nh;
+    stopPubThread();
     pose_pub_.reset(new ros::Publisher);
     *pose_pub_= nh.advertise<geometry_msgs::TransformStamped>(config.tf_frame_out, 1);
+    startPubThread();
   }
 
   config_ = config;
@@ -192,12 +207,14 @@ void TfDistort::tfCb()
 
 void TfDistort::pubThread()
 {
-  ros::Duration d(0.005);
+//  ros::Duration d(0.005);
+  ros::Duration d(0.001);
+  ros::Time time_now;
   uint32_t cnt = 0;
   uint32_t msg_cnt = 0;
   geometry_msgs::TransformStamped pose;
 
-  while (nh_.ok())
+  while (nh_.ok() && pub_thread_runnning_)
   {
     cnt++;
     d.sleep();
@@ -207,18 +224,19 @@ void TfDistort::pubThread()
       continue;
 
     DelayedTransform & dt = tf_queue_.front();
+    time_now = ros::Time::now();
 
-    if (std::abs(ros::Time::now().toSec() - dt.time_to_publish.toSec()) < d.toSec() * 0.75
-        || dt.time_to_publish.toSec() - ros::Time::now().toSec() < 0)
+    if (std::abs(time_now.toSec() - dt.time_to_publish.toSec()) < d.toSec() * 0.75
+        || dt.time_to_publish.toSec() - time_now.toSec() < 0)
     {
       addNoise(dt.transform);
       tf_broadcaster.sendTransform(dt.transform);
       tf::transformStampedTFToMsg(dt.transform, pose);
-      {
-        boost::mutex::scoped_try_lock lock(pose_pub_mutex_);
-        if(lock.owns_lock())
+//      {
+//        boost::mutex::scoped_try_lock lock(pose_pub_mutex_);
+//        if(lock.owns_lock())
           pose_pub_->publish(pose);
-      }
+//      }
 
       tf_queue_.pop();
       msg_cnt++;

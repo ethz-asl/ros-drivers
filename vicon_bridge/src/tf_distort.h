@@ -118,10 +118,11 @@ private:
   boost::signals::connection tf_cb_;
   tf::TransformBroadcaster tf_broadcaster;
   tf::TransformListener tf_listener_;
-  boost::mutex pose_pub_mutex_;
+//  boost::mutex pose_pub_mutex_;
   boost::shared_ptr<ros::Publisher> pose_pub_; ///< pose publisher for convenience
 
   boost::thread pub_thread_;
+  bool pub_thread_runnning_;
 
   RandomWalk random_walk_x_;
   RandomWalk random_walk_y_;
@@ -129,6 +130,8 @@ private:
 
   ros::Publisher info_pub_;
 
+  void startPubThread();
+  void stopPubThread();
   void pubThread();
   void tfCb();
   void reconfCb(Config & config, uint32_t level);
