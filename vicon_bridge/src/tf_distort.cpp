@@ -192,7 +192,9 @@ void TfDistort::tfCb()
     if (pose.getOrigin() != last_pose.getOrigin())
     {
       last_pose = pose;
-      ros::Time time_now = ros::Time::now();
+//      ros::Time time_now = ros::Time::now();
+      ros::Time time_now = pose.stamp_;
+
       if ((time_now - last_pub_time_) > pub_period_)
       {
         pose.child_frame_id_ = config_.tf_frame_out;
