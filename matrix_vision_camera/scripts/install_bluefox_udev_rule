@@ -1,0 +1,9 @@
+#!/bin/bash
+
+echo "###### copying udev rule to /etc/udev/rules.d ######"
+
+sudo cp `rospack find matrix_vision_camera`/scripts/51-mvbf.rules /etc/udev/rules.d
+
+sudo service udev reload
+
+echo "###### now unplug the camera and plug it back in in case it was connected while executing this script ######"
