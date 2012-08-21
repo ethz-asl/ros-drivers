@@ -512,7 +512,7 @@ void MatrixVisionCamera::readData(sensor_msgs::Image& image)
       features_->getImageInfo().width = image.width;
       features_->getImageInfo().height = image.height;
       features_->getImageInfo().color_coding = image.encoding;
-      features_->getImageInfo().exposure_time = Features::usToS(req->infoExposeTime_us.read());
+      features_->getImageInfo().exposure_time = usToS(req->infoExposeTime_us.read());
       features_->getImageInfo().gain = req->infoGain_dB.read();
     }
     else
