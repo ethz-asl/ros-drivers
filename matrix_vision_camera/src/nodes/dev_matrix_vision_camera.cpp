@@ -53,8 +53,6 @@
 #include "features.h"
 #include "formats.h"
 
-//#include "sm/timing/TimestampCorrector.hpp"
-
 #define NUM_DMA_BUFFERS 4
 
 // @todo eliminate these macros
@@ -78,32 +76,22 @@ using namespace matrix_vision_camera;
 using namespace mvIMPACT::acquire;
 using namespace std;
 
-////////////////////////////////////////////////////////////////////////////////
-// Constructor
+
 MatrixVisionCamera::MatrixVisionCamera() :
-  cam_(NULL)
+    cam_(NULL)
 {
-    rosTimeOffset_ = -1;
-//    int res = setenv("GENICAM_ROOT_V2_3", GENICAM_ROOT_DIR, 1);
-//    std::cout<<"genicam_root_dir:"<<res<<"\n"<<GENICAM_ROOT_DIR<<std::endl;
-//
+  rosTimeOffset_ = -1;
 
-//    -DGENICAM_ROOT='"${GENICAM_ROOT}"'
-//    -DGENICAM_ROOT_V2_3='"${GENICAM_ROOT_V2_3}"'
-//    -DGENICAM_GENTL64_PATH='"${GENICAM_GENTL64_PATH}"'
-//    -DGENICAM_CACHE_V2_3='"${GENICAM_CACHE_V2_3}"'
-//    -DGENICAM_LOG_CONFIG_V2_3='"${GENICAM_LOG_CONFIG_V2_3}"'
+  int ret = 0;
 
-    int ret = 0;
+  ret += setenv("GENICAM_ROOT", GENICAM_ROOT, 1);
+  ret += setenv("GENICAM_ROOT_V2_3", GENICAM_ROOT_V2_3, 1);
+  ret += setenv("GENICAM_GENTL64_PATH", GENICAM_GENTL64_PATH, 1);
+  ret += setenv("GENICAM_LOG_CONFIG_V2_3", GENICAM_LOG_CONFIG_V2_3, 1);
 
-    ret += setenv("GENICAM_ROOT", GENICAM_ROOT, 1);
-    ret += setenv("GENICAM_ROOT_V2_3", GENICAM_ROOT_V2_3, 1);
-    ret += setenv("GENICAM_GENTL64_PATH", GENICAM_GENTL64_PATH, 1);
-    ret += setenv("GENICAM_LOG_CONFIG_V2_3", GENICAM_LOG_CONFIG_V2_3, 1);
+  ROS_WARN_STREAM_COND(ret != 0, "couldn't set BlueCOUGAR environment variables ");
 
-    ROS_WARN_STREAM_COND(ret != 0, "couldn't set BlueCOUGAR environment variables ");
-
-    dev_mgr_.reset(new mvIMPACT::acquire::DeviceManager);
+  dev_mgr_.reset(new mvIMPACT::acquire::DeviceManager);
 }
 
 MatrixVisionCamera::~MatrixVisionCamera()
@@ -123,10 +111,6 @@ MatrixVisionCamera::~MatrixVisionCamera()
  */
 int MatrixVisionCamera::open(matrix_vision_camera::MatrixVisionCameraConfig &newconfig)
 {
-  //////////////////////////////////////////////////////////////
-  // First, look for the camera
-  //////////////////////////////////////////////////////////////
-
   dev_mgr_->updateDeviceList();
 
   if (dev_mgr_->deviceCount() == 0)
@@ -210,35 +194,6 @@ int MatrixVisionCamera::open(matrix_vision_camera::MatrixVisionCameraConfig &new
   {
     ++request_count;
   }
-
-  // set pixel clock
-//  SettingsBlueFOX sbf(cam_);
-//  PropertyICameraPixelClock & pixel_clock = sbf.cameraSetting.pixelClock_KHz;
-//  int pixel_clock_kHz = Features::MHzToKHz(newconfig.__CONST_PIXEL_CLOCK_NAME);
-//  TCameraPixelClock closest_pixel_clock = cpcStandard;
-//
-//  for (unsigned int i = 0; i < pixel_clock.dictSize(); i++)
-//  {
-//    const TCameraPixelClock & px_clk = pixel_clock.getTranslationDictValue(i);
-//    int diff1 = abs(px_clk - pixel_clock_kHz);
-//    int diff2 = abs(px_clk - closest_pixel_clock);
-//    if (diff1 < diff2)
-//    {
-//      closest_pixel_clock = px_clk;
-//    }
-//  }
-//
-//  if (closest_pixel_clock != 0)
-//  {
-//    pixel_clock.write(closest_pixel_clock);
-//    newconfig.__CONST_PIXEL_CLOCK_NAME = Features::kHzToMHz(closest_pixel_clock);
-////    ROS_INFO("setting %d as closest pixel_clock", closest_pixel_clock);
-//  }
-//  else
-//  {
-//    newconfig.__CONST_PIXEL_CLOCK_NAME = Features::kHzToMHz(pixel_clock.read());
-//    ROS_WARN("unable to find desired pixel clock");
-//  }
 
   use_ros_time_ = newconfig.use_ros_time;
 

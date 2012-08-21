@@ -109,22 +109,20 @@ public:
 
   std::string device_id_;
   boost::shared_ptr<Features> features_;
-    
-    
+
   // make it public
   StringPropMap propertyMap_;
-  
-  void saveCameraSettings( std::string path );
-  void loadCameraSettings( std::string path );
+
+  void saveCameraSettings(std::string path);
+  void loadCameraSettings(std::string path);
   void readSingleImage(sensor_msgs::Image& image);
   void clearRequestQueue();
-    
 
 private:
   bool use_ros_time_;
-  
-    sm::timing::TimestampCorrector<double> timestampCorrector_;
-    
+
+  sm::timing::TimestampCorrector<double> timestampCorrector_;
+
   int64_t rosTimeOffset_; // time offset between camera and ros time (as long as it is -1 => not initialised)
 
   boost::shared_ptr<mvIMPACT::acquire::DeviceManager> dev_mgr_;
@@ -134,18 +132,13 @@ private:
   boost::shared_ptr<mvIMPACT::acquire::Statistics> cam_stats_;
   boost::shared_ptr<mvIMPACT::acquire::ImageRequestControl> cam_irc_;
 
-    
-    
-    
+  // define a string -> property map for property manipulation:
+  // define the string -> Property map
+  void populatePropertyMap(StringPropMap& m, ComponentIterator it, const std::string& currentPath = "");
+  void generatePropertyMap();
 
-    // define a string -> property map for property manipulation:
-    // define the string -> Property map
-    void populatePropertyMap( StringPropMap& m, ComponentIterator it, const std::string& currentPath  = "");
-    void generatePropertyMap();
-    
-    void fillSensorMsgs(sensor_msgs::Image& image, const Request* req, ros::Time time_now );
+  void fillSensorMsgs(sensor_msgs::Image& image, const Request* req, ros::Time time_now);
 
-    
   void SafeCleanup();
 };
 }

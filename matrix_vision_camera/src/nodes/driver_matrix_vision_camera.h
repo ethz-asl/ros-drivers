@@ -5,6 +5,7 @@
 * Software License Agreement (BSD License)
 *
 *  Copyright (c) 2010 Jack O'Quin
+*  Copyright (c) 2012 Markus Achtelik
 *  All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without

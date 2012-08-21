@@ -1,9 +1,8 @@
-/* $Id: camera1394_node.cpp 34660 2010-12-11 18:27:24Z joq $ */
-
 /*********************************************************************
 * Software License Agreement (BSD License)
 *
 *  Copyright (c) 2010 Jack O'Quin
+*  Copyright (c) 2012 Markus Achtelik
 *  All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -39,21 +38,10 @@
 
 /** @file
 
-    @brief ROS driver node for IIDC-compatible IEEE 1394 digital cameras.
+    @brief ROS driver node for Matrix Vision digital cameras.
 
 */
 
-/** Segfault signal handler.
- *
- *  Sadly, libdc1394 sometimes crashes.
- */
-void sigsegv_handler(int sig)
-{
-  signal(SIGSEGV, SIG_DFL);
-//  fprintf(stderr, "Segmentation fault, stopping camera driver.\n");
-  ROS_ERROR("Segmentation fault, stopping camera.");
-  ros::shutdown();                      // stop the main loop
-}
 
 /** Main node entry point. */
 int main(int argc, char **argv)
@@ -62,7 +50,6 @@ int main(int argc, char **argv)
   ros::NodeHandle node;
   ros::NodeHandle priv_nh("~");
   ros::NodeHandle camera_nh("camera");
-  signal(SIGSEGV, &sigsegv_handler);
   matrix_vision_camera_driver::MatrixVisionCameraDriver dvr(priv_nh, camera_nh);
 
   dvr.setup();
@@ -71,8 +58,8 @@ int main(int argc, char **argv)
     
   while (node.ok())
     {
-        if (cnt%5 == 0)
-            ROS_INFO_STREAM(".");
+//        if (cnt%5 == 0)
+//            ROS_INFO_STREAM(".");
             
         dvr.poll();
         ros::spinOnce();

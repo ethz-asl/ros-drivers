@@ -1,9 +1,8 @@
-// $Id: driver1394.cpp 35691 2011-02-02 04:28:58Z joq $
-
 /*********************************************************************
 * Software License Agreement (BSD License)
 *
 *  Copyright (C) 2009, 2010 Jack O'Quin, Patrick Beeson
+*  Copyright (C) 2012, Markus Achtelik
 *  All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without

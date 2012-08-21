@@ -3,16 +3,15 @@
 #include <cmath>
 #include "features.h"
 #include "formats.h"
+
+#include <mvIMPACT_CPP/mvIMPACT_acquire.h>
+
 /** @file
 
  @brief Bluecougar features implementation
 
  @author Markus Achtelik
  */
-
-#define HDR_DISABLE
-
-
 
 using namespace mvIMPACT::acquire;
 
@@ -41,16 +40,15 @@ Features::Features(Device *cam) :
 bool Features::initialize(Config *newconfig)
 {
   reconfigure(newconfig);
-
   // save configured values
   oldconfig_ = *newconfig;
+
   return true;
 }
 
 double Features::computeFrameTime()
 {
-  CameraSettingsBlueCOUGAR bfs(cam_);
-  IOSubSystemBlueCOUGAR bfIOs(cam_);
+  CameraSettingsBlueDevice bfs(cam_);
 
   double pixel_clock = static_cast<double> (bfs.pixelClock_KHz.read()) * 1.0e3;
   double width = static_cast<double> (bfs.aoiWidth.read(plMaxValue));
@@ -62,18 +60,16 @@ bool Features::setFramerate(const double & fps_suggested, double * fps_returned)
 {
   const double TRIGGER_PULSE_WIDTH = 100.0 * 1.0e-6; // 100 us
 
-  ROS_INFO_STREAM("cmaera_family: "<<cam_->family.readS());
+  CameraSettingsBlueDevice common_settings(cam_);
 
-  CameraSettingsBlueCOUGAR bfs(cam_);
-  IOSubSystemBlueCOUGAR bfIOs(cam_);
-
-  double exposure_time = static_cast<double> (bfs.expose_us.read()) * 1.0e-6;
-  double pixel_clock = static_cast<double> (bfs.pixelClock_KHz.read()) * 1.0e3;
+  double exposure_time = static_cast<double>(common_settings.expose_us.read()) * 1.0e-6;
+  double pixel_clock = static_cast<double>(common_settings.pixelClock_KHz.read()) * 1.0e3;
   double frame_time = computeFrameTime();
   double fps_max = 1.0 / (frame_time + exposure_time + 2 * TRIGGER_PULSE_WIDTH);
   double fps;
 
-  ROS_INFO("HRTC timing info: px_clock=%f MHz, frametime=%f ms, fps_max=%f ", pixel_clock*1.0e-6, frame_time*1000, fps_max);
+  // assuming that the BlueCougar runs in free running mode, this might be conservative
+  ROS_INFO("Timing info: px_clock=%f MHz, frametime=%f ms, fps_max=%f ", pixel_clock*1.0e-6, frame_time*1000, fps_max);
 
   if (fps_suggested > fps_max)
   {
@@ -85,64 +81,85 @@ bool Features::setFramerate(const double & fps_suggested, double * fps_returned)
 
   if (fps_returned)
     *fps_returned = fps;
+
+  // setting the framerate can be quite different for the blueDevice families ...
+
+  if (cam_->family.readS() == "mvBlueCOUGAR")
+  {
+    CameraSettingsBlueCOUGAR bluecougar_settings(cam_);
+    double fps_ret;
+    configure(bluecougar_settings.frameRate_Hz, fps_suggested, &fps_ret);
+    if (fps_returned)
+      *fps_returned = (double)fps_ret;
+  }
+  else if (cam_->family.readS() == "mvBlueFOX")
+  {
+    IOSubSystemBlueFOX bluefox_IOs(cam_);
+    CameraSettingsBlueFOX bluefox_settings(cam_);
     
-    ROS_INFO("Framerate set to: %f fps", fps);
+    // define a HRTC program that results in a define image frequency
+    // the hardware real time controller shall be used to trigger an image
+    bluefox_settings.triggerSource.write(ctsRTCtrl);
+    // when the hardware real time controller switches the trigger signal to
+    // high the exposure of the image shall start
+    bluefox_settings.triggerMode.write(ctmOnHighLevel); // ctmOnHighLevel
 
-  // define a HRTC program that results in a define image frequency
-  // the hardware real time controller shall be used to trigger an image
-  bfs.triggerSource.write(ctsRTCtrl);
-  // when the hardware real time controller switches the trigger signal to
-  // high the exposure of the image shall start
-  bfs.triggerMode.write(ctmOnDemand); // ctmOnHighLevel
-ROS_INFO("3");
-  // error checks
-  if (bfIOs.RTCtrProgramCount() == 0)
-  {
-    // no HRTC controllers available (this never happens for the mvBluecougar)
+    // error checks
+    if (bluefox_IOs.RTCtrProgramCount() == 0)
+    {
+      // no HRTC controllers available (this never happens for the mvBluecougar)
       ROS_WARN("NO HRTC Controllers available");
-    return false;
-  }
+      return false;
+    }
 
-  RTCtrProgram* pRTCtrlprogram = bfIOs.getRTCtrProgram(0);
-  if (!pRTCtrlprogram)
+    RTCtrProgram* pRTCtrlprogram = bluefox_IOs.getRTCtrProgram(0);
+    if (!pRTCtrlprogram)
+    {
+      // this only should happen if the system is short of memory
+      ROS_WARN("Short on Memory...");
+      return false;
+    }
+
+    // start of the program
+
+    // we need 5 steps for the program
+    pRTCtrlprogram->setProgramSize(5);
+
+    // wait a certain amount of time to achieve the desired frequency
+    int progStep = 0;
+    RTCtrProgramStep* pRTCtrlStep = 0;
+    pRTCtrlStep = pRTCtrlprogram->programStep(progStep++);
+    pRTCtrlStep->opCode.write(rtctrlProgWaitClocks);
+    pRTCtrlStep->clocks_us.write(static_cast<int>((1.0 / fps - TRIGGER_PULSE_WIDTH) * 1.0e6));
+
+    // trigger an image
+    pRTCtrlStep = pRTCtrlprogram->programStep(progStep++);
+    pRTCtrlStep->opCode.write(rtctrlProgTriggerSet);
+
+    // high time for the trigger signal (should not be smaller than 100 us)
+    pRTCtrlStep = pRTCtrlprogram->programStep(progStep++);
+    pRTCtrlStep->opCode.write(rtctrlProgWaitClocks);
+    pRTCtrlStep->clocks_us.write(static_cast<int>(TRIGGER_PULSE_WIDTH * 1.0e6));
+
+    // end trigger signal
+    pRTCtrlStep = pRTCtrlprogram->programStep(progStep++);
+    pRTCtrlStep->opCode.write(rtctrlProgTriggerReset);
+
+    // restart the program
+    pRTCtrlStep = pRTCtrlprogram->programStep(progStep++);
+    pRTCtrlStep->opCode.write(rtctrlProgJumpLoc);
+    pRTCtrlStep->address.write(0);
+
+    // start the program
+    pRTCtrlprogram->mode.write(rtctrlModeRun);
+  }
+  else
   {
-    // this only should happen if the system is short of memory
-    ROS_WARN("Short on Memory...");
+    ROS_WARN_STREAM("Setting framerate for "<<cam_->family.read()<<" not implemented");
     return false;
   }
 
-  // start of the program
-
-  // we need 5 steps for the program
-  pRTCtrlprogram->setProgramSize(5);
-
-  // wait a certain amount of time to achieve the desired frequency
-  int progStep = 0;
-  RTCtrProgramStep* pRTCtrlStep = 0;
-  pRTCtrlStep = pRTCtrlprogram->programStep(progStep++);
-  pRTCtrlStep->opCode.write(rtctrlProgWaitClocks);
-  pRTCtrlStep->clocks_us.write(static_cast<int> ((1.0 / fps - TRIGGER_PULSE_WIDTH) * 1.0e6));
-
-  // trigger an image
-  pRTCtrlStep = pRTCtrlprogram->programStep(progStep++);
-  pRTCtrlStep->opCode.write(rtctrlProgTriggerSet);
-
-  // high time for the trigger signal (should not be smaller than 100 us)
-  pRTCtrlStep = pRTCtrlprogram->programStep(progStep++);
-  pRTCtrlStep->opCode.write(rtctrlProgWaitClocks);
-  pRTCtrlStep->clocks_us.write(static_cast<int> (TRIGGER_PULSE_WIDTH * 1.0e6));
-
-  // end trigger signal
-  pRTCtrlStep = pRTCtrlprogram->programStep(progStep++);
-  pRTCtrlStep->opCode.write(rtctrlProgTriggerReset);
-
-  // restart the program
-  pRTCtrlStep = pRTCtrlprogram->programStep(progStep++);
-  pRTCtrlStep->opCode.write(rtctrlProgJumpLoc);
-  pRTCtrlStep->address.write(0);
-
-  // start the program
-  pRTCtrlprogram->mode.write(rtctrlModeRun);
+  ROS_INFO("Framerate set to: %f fps", fps);
 
   return true;
 }
@@ -316,21 +333,23 @@ void Features::reconfigure(Config *newconfig)
   }
 
   // framerate
-//  if (newconfig->frame_rate != oldconfig_.frame_rate)
-//  {
-//    if (!setFramerate(newconfig->frame_rate, &newconfig->frame_rate))
-//    {
-//      newconfig->frame_rate = oldconfig_.frame_rate;
-//    }
-//    else
-//    {
-//      fps_ = newconfig->frame_rate;
-//    }
-//  }
+  if (newconfig->frame_rate != oldconfig_.frame_rate)
+  {
+    if (!setFramerate(newconfig->frame_rate, &newconfig->frame_rate))
+    {
+      newconfig->frame_rate = oldconfig_.frame_rate;
+    }
+    else
+    {
+      fps_ = newconfig->frame_rate;
+    }
+  }
 
   setHDR(newconfig->hdr_mode, &newconfig->hdr_mode);
 
   setColorCoding(newconfig->color_coding, &newconfig->color_coding);
+
+  setPixelClock(newconfig->pixel_clock, &newconfig->pixel_clock);
 
   if (newconfig->auto_query_values)
   {
@@ -347,64 +366,72 @@ void Features::reconfigure(Config *newconfig)
 
   // save modified values
   oldconfig_ = *newconfig;
-
-    
 }
 
 bool Features::setHDR(const std::string & hdr_suggested, std::string * hdr_returned)
-{ 
- /* SettingsBluecougar settings(cam_);
-  HDRControl & hdrc = settings.cameraSetting.getHDRControl();
+{
+  HDRControl * hdrc;
+
   std::string retval = oldconfig_.hdr_mode;
-    
-   // std::string t = hdrc.HDREnable.readS();
-   // ROS_INFO_STREAM("current: " << t);
-#ifdef HDR_DISABLE
-    
-    hdrc.restoreDefault();
-    ROS_WARN_STREAM("HDR Setting disabled, restoring default...");
-    
-#else
-    
+
+  CameraSettingsBlueFOX bluefox_settings(cam_);
+  HDRControl & bluefox_hdrc = bluefox_settings.getHDRControl();
+  CameraSettingsBlueCOUGAR bluecougar_settings(cam_);
+  HDRControl & bluecougar_hdrc = bluecougar_settings.getHDRControl();
+
+  if (cam_->family.read() == "mvBlueFOX")
+  {
+    hdrc = &bluefox_hdrc;
+  }
+  else if (cam_->family.read() == "mvBlueCOUGAR")
+  {
+    hdrc = &bluecougar_hdrc;
+  }
+
   try
   {
-    if (hdr_suggested == bluecougar::Bluecougar_hdr_off)
+    if (hdrc->HDREnable.isValid())
     {
-      // 
-      hdrc.HDREnable.write(bFalse, 0);
-      retval = hdr_suggested;
-    }
-    else if (hdr_suggested == bluecougar::Bluecougar_hdr_user)
-    {
-      retval = oldconfig_.hdr_mode;
+      if (hdr_suggested == matrix_vision_camera::MatrixVisionCamera_hdr_off)
+      {
+        //
+        hdrc->HDREnable.write(bFalse, 0);
+        retval = hdr_suggested;
+      }
+      else if (hdr_suggested == matrix_vision_camera::MatrixVisionCamera_hdr_user)
+      {
+        retval = oldconfig_.hdr_mode;
+      }
+      else
+      {
+        hdrc->HDREnable.write(bTrue);
+        hdrc->HDRMode.writeS(hdr_suggested);
+        retval = hdr_suggested;
+      }
     }
     else
     {
-        hdrc.HDREnable.write(bTrue);
-        hdrc.HDRMode.writeS(hdr_suggested);
-      retval = hdr_suggested;
+      retval = matrix_vision_camera::MatrixVisionCamera_hdr_off;
     }
   }
   catch (ImpactAcquireException & e)
   {
-    ROS_WARN_STREAM("Unable to set HDR mode to: "<< hdr_suggested << " reason: "<<e.getErrorCodeAsString() << " EString:" << e.getErrorString() );
+    ROS_WARN_STREAM(
+        "Unable to set HDR mode to: "<< hdr_suggested << " reason: "<<e.getErrorCodeAsString() << " EString:" << e.getErrorString());
     if (hdr_returned)
       *hdr_returned = retval;
     return false;
   }
 
-#endif
-    
   if (hdr_returned)
     *hdr_returned = retval;
 
-  return true;*/
+  return true;
 }
-
 
 bool Features::setColorCoding(const std::string & cc_suggested, std::string * cc_returned)
 {
-/*  // set color mode
+  // set color mode
   mvIMPACT::acquire::ImageDestination img_dest(cam_);
   bool success = false;
 
@@ -412,9 +439,9 @@ bool Features::setColorCoding(const std::string & cc_suggested, std::string * cc
   {
     for (unsigned int i = 0; i < img_dest.pixelFormat.dictSize(); i++)
     {
-      if (bluecougar::pixelFormat(cc_suggested) == img_dest.pixelFormat.getTranslationDictValue(i))
+      if (matrix_vision_camera::pixelFormat(cc_suggested) == img_dest.pixelFormat.getTranslationDictValue(i))
       {
-        img_dest.pixelFormat.write(bluecougar::pixelFormat(cc_suggested));
+        img_dest.pixelFormat.write(matrix_vision_camera::pixelFormat(cc_suggested));
         success = true;
         break;
       }
@@ -426,7 +453,7 @@ bool Features::setColorCoding(const std::string & cc_suggested, std::string * cc
     }
 
     if (cc_returned)
-      *cc_returned = bluecougar::pixelFormat(img_dest.pixelFormat.read());
+      *cc_returned = matrix_vision_camera::pixelFormat(img_dest.pixelFormat.read());
 
     return success;
   }
@@ -436,7 +463,47 @@ bool Features::setColorCoding(const std::string & cc_suggested, std::string * cc
     if (cc_returned)
       *cc_returned = oldconfig_.color_coding;
     return false;
-  }*/
+  }
+
+  return success;
 }
 
+bool Features::setPixelClock(const double & px_clock_suggested, double * px_clock_returned)
+{
+  CameraSettingsBlueDevice settings(cam_);
+  PropertyICameraPixelClock & pixel_clock = settings.pixelClock_KHz;
+  int pixel_clock_kHz = MHzToKHz(px_clock_suggested);
+  TCameraPixelClock closest_pixel_clock = cpcStandard;
 
+  double retval = oldconfig_.pixel_clock;
+  bool success = false;
+
+  for (unsigned int i = 0; i < pixel_clock.dictSize(); i++)
+  {
+    const TCameraPixelClock & px_clk = pixel_clock.getTranslationDictValue(i);
+    int diff1 = abs(px_clk - pixel_clock_kHz);
+    int diff2 = abs(px_clk - closest_pixel_clock);
+    if (diff1 < diff2)
+    {
+      closest_pixel_clock = px_clk;
+    }
+  }
+
+  if (closest_pixel_clock != 0)
+  {
+    pixel_clock.write(closest_pixel_clock);
+    retval = kHzToMHz(closest_pixel_clock);
+    success = true;
+  }
+  else
+  {
+    retval = kHzToMHz(pixel_clock.read());
+    ROS_WARN("unable to find desired pixel clock");
+    success = false;
+  }
+
+  if (px_clock_returned)
+    *px_clock_returned = retval;
+
+  return success;
+}
