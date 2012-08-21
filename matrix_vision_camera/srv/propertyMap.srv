@@ -1,0 +1,6 @@
+int8 command
+string identifier
+string value
+---
+string result
+int8 status
