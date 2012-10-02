@@ -37,13 +37,26 @@ if(CMAKE_SIZEOF_VOID_P MATCHES "8")
     set(GENICAM_ROOT_V2_3 ${PROJECT_SOURCE_DIR}/matrix_vision_drivers/x86_64/mvBlueCOUGAR_runtime-2.0.5/GenICam_Runtime_gcc40_Linux64_x64_v2_3_0) 
     set(GENICAM_GENTL64_PATH ${PROJECT_SOURCE_DIR}/matrix_vision_drivers/x86_64/mvBlueCOUGAR_runtime-2.0.5/lib)
     set(GENICAM_CACHE_V2_3 ${PROJECT_SOURCE_DIR}matrix_vision_drivers/genicam_cache)
-    set(GENICAM_LOG_CONFIG_V2_3 ${PROJECT_SOURCE_DIR}/matrix_vision_drivers/x86_64/mvBlueCOUGAR_runtime-2.0.5/GenICam_Runtime_gcc40_Linux64_x64_v2_3_0/log/config-unixDefaultLogging.properties)
-    
+    set(GENICAM_LOG_CONFIG_V2_3 ${PROJECT_SOURCE_DIR}/matrix_vision_drivers/x86_64/mvBlueCOUGAR_runtime-2.0.5/GenICam_Runtime_gcc40_Linux64_x64_v2_3_0/log/config-unix/DefaultLogging.properties)
     
 elseif(CMAKE_SIZEOF_VOID_P MATCHES "4")
-    set(MVIMPACT_DRIVER      driver/mvBlueFOX-x86_ABI2-1.12.44)
-    set(MVIMPACT_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/driver/mvIMPACT_acquire-x86-1.12.44)
-    set(MVIMPACT_LINK_DIR    ${PROJECT_SOURCE_DIR}/driver/mvIMPACT_acquire-x86-1.12.44/lib/x86)
+    set(MVIMPACT_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/matrix_vision_drivers/x86_32/mvIMPACT_acquire)
+    set(MVIMPACT_LINK_DIR  
+        ${PROJECT_SOURCE_DIR}/matrix_vision_drivers/x86/mvIMPACT_acquire/lib/x86
+        ${PROJECT_SOURCE_DIR}/matrix_vision_drivers/x86/mvBlueFOX_runtime
+        ${PROJECT_SOURCE_DIR}/matrix_vision_drivers/x86/mvBlueCOUGAR_runtime/lib
+        ${PROJECT_SOURCE_DIR}/matrix_vision_drivers/x86/mvBlueCOUGAR_runtime/GenICam_Runtime_gcc40_Linux32_i86_v2_3_0/bin/Linux32_i86
+        ${PROJECT_SOURCE_DIR}/matrix_vision_drivers/x86/mvBlueCOUGAR_runtime/GenICam_Runtime_gcc40_Linux32_i86_v2_3_0/bin/Linux32_i86/GenApi/Generic
+        ) 
+    set(GENICAM_ROOT ${PROJECT_SOURCE_DIR}/matrix_vision_drivers/x86/mvBlueCOUGAR_runtime/GenICam_Runtime_gcc40_Linux32_i86_v2_3_0) 
+    set(GENICAM_ROOT_V2_3 ${PROJECT_SOURCE_DIR}/matrix_vision_drivers/x86/mvBlueCOUGAR_runtime/GenICam_Runtime_gcc40_Linux32_i86_v2_3_0) 
+    set(GENICAM_GENTL64_PATH ${PROJECT_SOURCE_DIR}/matrix_vision_drivers/x86/mvBlueCOUGAR_runtime/lib)
+    set(GENICAM_CACHE_V2_3 ${PROJECT_SOURCE_DIR}matrix_vision_drivers/genicam_cache)
+    set(GENICAM_LOG_CONFIG_V2_3 ${PROJECT_SOURCE_DIR}/matrix_vision_drivers/x86/mvBlueCOUGAR_runtime/GenICam_Runtime_gcc40_Linux32_i86_v2_3_0/log/config-unix/DefaultLogging.properties)
+
+
+
+
 else(CMAKE_SIZEOF_VOID_P MATCHES "8")
     message(FATAL_ERROR "unable to detect platform")
 endif (CMAKE_SIZEOF_VOID_P MATCHES "8")

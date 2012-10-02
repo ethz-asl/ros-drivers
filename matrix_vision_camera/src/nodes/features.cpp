@@ -92,11 +92,11 @@ bool Features::setFramerate(const double & fps_suggested, double * fps_returned)
     if (fps_returned)
       *fps_returned = (double)fps_ret;
   }
-  else if (cam_->family.readS() == "mvBlueFOX")
-  {
+  else if (cam_->family.readS() == "mvBlueFOX" && cam_->product.readS() != "mvBlueFOX-ML/IGC202dG")
+  {      
     IOSubSystemBlueFOX bluefox_IOs(cam_);
     CameraSettingsBlueFOX bluefox_settings(cam_);
-    
+      
     // define a HRTC program that results in a define image frequency
     // the hardware real time controller shall be used to trigger an image
     bluefox_settings.triggerSource.write(ctsRTCtrl);
@@ -386,6 +386,9 @@ bool Features::setHDR(const std::string & hdr_suggested, std::string * hdr_retur
   else if (cam_->family.read() == "mvBlueCOUGAR")
   {
     hdrc = &bluecougar_hdrc;
+  }
+  else {
+      return false;
   }
 
   try

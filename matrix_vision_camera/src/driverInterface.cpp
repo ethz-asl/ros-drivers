@@ -20,7 +20,7 @@ namespace enc = sensor_msgs::image_encodings;
 
 
 bool saveImageToFileBool = 1;
-bool continuousCapture = 0;
+bool continuousCapture = 1;
 
 int sendAndPrintResult(ros::ServiceClient client, matrix_vision_camera::propertyMap srv) {
 
@@ -121,6 +121,12 @@ int main(int argc, char **argv)
         cin >> cmd;
         
         
+        /// QUIT
+        if ( cmd == "quit" || cmd == "q") {
+            boRun = false;
+            continue;
+        }
+        
         
         // check if service still exists:
         if( ! client.exists() ) {
@@ -208,11 +214,6 @@ int main(int argc, char **argv)
         else if( cmd == "open" ) {
             srv.request.command = DI_OPEN_DEVICE;
             sendAndPrintResult(client, srv);
-        }
-        /// QUIT
-        else if ( cmd == "quit" || cmd == "q") {
-            boRun = false;
-            continue;
         }
         /// HELP
         else {
