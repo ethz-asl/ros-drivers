@@ -131,7 +131,14 @@ class Features
 {
 public:
 
-  Features(mvIMPACT::acquire::Device *cam);
+  enum TriggerMode
+  {
+    MODE_NORMAL,
+    MODE_MASTER,
+    MODE_SLAVE
+  };
+
+  Features(mvIMPACT::acquire::Device *cam, TriggerMode mode);
 
   bool initialize(Config *newconfig);
   void reconfigure(Config *newconfig);
@@ -155,11 +162,14 @@ private:
   bool setPixelClock(const double & px_clock_suggested, double * px_clock_returned = NULL);
   double computeFrameTime();
 
+  bool setMasterFramerate(const double & fps_suggested, double * fps_returned = NULL);
+
   mvIMPACT::acquire::Device *cam_; ///< current camera
   double fps_;
   ImageInfo image_info_;
   Config oldconfig_; ///< previous Config settings
   static const double TRIGGER_PULSE_WIDTH = 2.0e-4;
+  TriggerMode mode_;
 };
 
 #endif // _FEATURES_H_

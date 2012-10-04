@@ -201,8 +201,25 @@ int MatrixVisionCamera::open(matrix_vision_camera::MatrixVisionCameraConfig &new
   // initialize feature settings
   //////////////////////////////////////////////////////////////
 
+  ros::NodeHandle pnh("~");
+  // DRIVERTODO report mode.
+  std::string triggerMode = "normal";
+  pnh.param("trigger_mode", triggerMode, triggerMode);
+  Features::TriggerMode mode = Features::MODE_NORMAL;
+  if(triggerMode == "master")
+    {
+      mode = Features::MODE_MASTER;
+    }
+  else if(triggerMode == "slave")
+    {
+      mode = Features::MODE_SLAVE;
+    }
+  
+  ROS_INFO_STREAM("Trigger mode is " << mode);
+  
+
   // TODO: pass newconfig here and eliminate initialize() method
-  features_.reset(new Features(cam_));
+  features_.reset(new Features(cam_, mode));
     
   // get features list:
 /* ComponentList cl = cam_->getDeviceDriverFeatureList();

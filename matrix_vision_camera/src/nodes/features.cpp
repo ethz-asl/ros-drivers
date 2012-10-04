@@ -5,6 +5,7 @@
 #include "formats.h"
 
 #include <mvIMPACT_CPP/mvIMPACT_acquire.h>
+#include <mvIMPACT_CPP/mvIMPACT_acquire_GenICam.h>
 
 /** @file
 
@@ -21,11 +22,48 @@ using namespace mvIMPACT::acquire;
 
 /** Constructor
  *
- *  @param camera address of DC1394 camera structure.
+ *  @param camera address of DC1394 camera structure.et
  */
-Features::Features(Device *cam) :
-  cam_(cam), fps_(20.0) // set to something != 0
+Features::Features(Device *cam, TriggerMode mode) :
+  cam_(cam), fps_(20.0), // set to something != 0
+  mode_(mode)
 {
+  
+  // DRIVERTODO 
+  // Here is where we configure the MASTER or SLAVE mode.
+  if(mode == MODE_MASTER)
+    {
+      // Set up the periodic reset of the internal clock.
+      
+      
+      // Set up the camera to trigger on one line based on the frame rate...this should be a function that also gets called during the "reconfigure" call.
+      setMasterFramerate(fps_, &fps_);
+      
+    }
+  
+  if(mode == MODE_MASTER || mode == MODE_SLAVE)
+    {
+      // Set up the camera to listen for trigger signals on digital input 1
+      // Set Trigger of Master and Slave camera 
+      // This is "Slave-Slave" mode from the manual
+      GenICam::AcquisitionControl ac(cam_);
+      ac.triggerSelector.writeS( "FrameStart" );
+      ac.triggerMode.writeS( "On" );
+      ac.triggerSource.writeS( "Line4" );
+      ac.triggerActivation.writeS( "RisingEdge" ); 
+
+
+      // Set up the camera to listen for clock reset signals on digital input 2.
+      
+      // GenICam::AcquisitionControl ac2(cam_);
+      // ac2.triggerSelector.writeS( "TimestampReset" );
+      // ac2.triggerMode.writeS( "On" );
+      // ac2.triggerSource.writeS( "Line4" );
+      // ac2.triggerActivation.writeS( "RisingEdge" ); 
+
+
+    }
+
 }
 
 /** Query and set all features for newly opened (or reopened) device.
@@ -54,6 +92,57 @@ double Features::computeFrameTime()
   double width = static_cast<double> (bfs.aoiWidth.read(plMaxValue));
   double height = static_cast<double> (bfs.aoiHeight.read(plMaxValue));
   return (width + 94) * (height + 45) / pixel_clock;
+}
+
+bool Features::setMasterFramerate(const double & fps_suggested, double * fps_returned)
+{
+  // DRIVERTODO
+  const double TRIGGER_PULSE_WIDTH = 100.0 * 1.0e-6; // 100 us
+
+  CameraSettingsBlueDevice common_settings(cam_);
+
+  double exposure_time = static_cast<double>(common_settings.expose_us.read()) * 1.0e-6;
+  double pixel_clock = static_cast<double>(common_settings.pixelClock_KHz.read()) * 1.0e3;
+  double frame_time = computeFrameTime();
+  double fps_max = 1.0 / (frame_time + exposure_time + 2 * TRIGGER_PULSE_WIDTH);
+  double fps;
+
+  // assuming that the BlueCougar runs in free running mode, this might be conservative
+  ROS_INFO("Timing info: px_clock=%f MHz, frametime=%f ms, fps_max=%f ", pixel_clock*1.0e-6, frame_time*1000, fps_max);
+
+  if (fps_suggested > fps_max)
+  {
+    ROS_WARN("FPS (%f) > FPS_max (%f), limiting to FPS_max", fps_suggested, fps_max);
+    fps = fps_max;
+  }
+  else
+    fps = fps_suggested;
+
+  if (fps_returned)
+    *fps_returned = fps;
+
+  // Master: Set timers to trig image: Start after queue is filled
+  GenICam::CounterAndTimerControl catcMaster(cam_);
+  catcMaster.timerSelector.writeS( "Timer1" );
+  catcMaster.timerDelay.write( 0. );
+  // Time between triggers in us
+  catcMaster.timerDuration.write( 1e6/fps );
+  catcMaster.timerTriggerSource.writeS( "Timer1End" );
+  
+  // Set a pulse width of 1 ms.
+  catcMaster.timerSelector.writeS( "Timer2" );
+  catcMaster.timerDelay.write( 0. );
+  catcMaster.timerDuration.write( TRIGGER_PULSE_WIDTH * 1e6 );
+  catcMaster.timerTriggerSource.writeS( "Timer1End" );
+  
+  // Set Digital I/O
+  // Now line 0 produces a pulse when timer 2 is on.
+  GenICam::DigitalIOControl io(cam_);
+  io.lineSelector.writeS( "Line0" );
+  io.lineSource.writeS( "Timer2Active" );
+
+  return true;
+  
 }
 
 bool Features::setFramerate(const double & fps_suggested, double * fps_returned)
@@ -167,20 +256,6 @@ bool Features::setFramerate(const double & fps_suggested, double * fps_returned)
 
 
 /*
-
-
-
-void Features::reconfigure(Config *newconfig)  {
-
-    // get the settings
-    SettingsBluecougar settings(cam_);
-    CameraSettingsBluecougar & cam_settings = settings.cameraSetting;
-
-}
-
-
-
-*//*
 
 
 
@@ -333,17 +408,35 @@ void Features::reconfigure(Config *newconfig)
   }
 
   // framerate
-  if (newconfig->frame_rate != oldconfig_.frame_rate)
-  {
-    if (!setFramerate(newconfig->frame_rate, &newconfig->frame_rate))
+  if(mode_ ==  MODE_NORMAL)
     {
-      newconfig->frame_rate = oldconfig_.frame_rate;
+      if (newconfig->frame_rate != oldconfig_.frame_rate)
+	{
+	  if (!setFramerate(newconfig->frame_rate, &newconfig->frame_rate))
+	    {
+	      newconfig->frame_rate = oldconfig_.frame_rate;
+	    }
+	  else
+	    {
+	      fps_ = newconfig->frame_rate;
+	    }
+	}
     }
-    else
+  else
     {
-      fps_ = newconfig->frame_rate;
+      if (newconfig->frame_rate != oldconfig_.frame_rate)
+	{
+	  if (!setMasterFramerate(newconfig->frame_rate, &newconfig->frame_rate))
+	    {
+	      newconfig->frame_rate = oldconfig_.frame_rate;
+	    }
+	  else
+	    {
+	      fps_ = newconfig->frame_rate;
+	    }
+	}
+      
     }
-  }
 
   setHDR(newconfig->hdr_mode, &newconfig->hdr_mode);
 
