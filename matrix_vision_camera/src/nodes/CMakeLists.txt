@@ -7,7 +7,7 @@ set(DRIVER_SOURCES
   )
 
 rosbuild_add_library(matrix_vision_camera_driver ${DRIVER_SOURCES})
-target_link_libraries(matrix_vision_camera_driver mvDeviceManager)
+#target_link_libraries(matrix_vision_camera_driver mvDeviceManager)
 
 rosbuild_add_executable(matrix_vision_camera_node matrix_vision_camera_node.cpp )
 target_link_libraries(matrix_vision_camera_node  matrix_vision_camera_driver)

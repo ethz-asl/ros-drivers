@@ -18,6 +18,7 @@
   <depend package="tf"/>
   <rosdep name="opencv2"/>  
 <depend package="cv_bridge" />
+<depend package="matrix_vision_driver" />
 
 <!--depend package="mvimpact_x86_64" /-->
  
