@@ -10,8 +10,8 @@
   <url>http://ros.org/wiki/matrix_vision_driver</url>
   
   <export>
-    <cpp cflags="-I${prefix}/mvIMPACT_acquire -DGENICAM_ROOT=${prefix}/mvBlueCOUGAR_runtime/GenICam -DGENICAM_ROOT_V2_3=${prefix}/mvBlueCOUGAR_runtime/GenICam -DGENICAM_GENTL64_PATH=${prefix}/mvBlueCOUGAR_runtime/lib -DGENICAM_CACHE_V2_3=${prefix}/mvBlueCOUGAR_runtime/GenICam -DGENICAM_LOG_CONFIG_V2_3=${prefix}/mvBlueCOUGAR_runtime/GenICam/log/config-unix/DefaultLogging.properties   "
-         lflags="-L${prefix}/mvIMPACT_acquire/lib -L${prefix}/mvBlueFOX_runtime/lib/ -L${prefix}/mvBlueCOUGAR_runtime/lib/  -L${prefix}/mvBlueCOUGAR_runtime/GenICam/bin/Linux -L${prefix}/mvBlueCOUGAR_runtime/GenICam/bin/Linux/GenApi/Generic -lmvDeviceManager"/>
+    <cpp cflags="`cat ${prefix}/compile_flags`"
+         lflags="`cat ${prefix}/linker_paths` -lmvDeviceManager"/>
 
   </export>
 

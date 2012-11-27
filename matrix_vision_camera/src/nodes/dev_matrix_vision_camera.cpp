@@ -78,7 +78,7 @@ using namespace std;
 
 
 MatrixVisionCamera::MatrixVisionCamera() :
-    cam_(NULL)
+    use_ros_time_(true), cam_(NULL)
 {
   rosTimeOffset_ = -1;
 
@@ -94,7 +94,7 @@ MatrixVisionCamera::MatrixVisionCamera() :
 
   ROS_WARN_STREAM_COND(ret != 0, "couldn't set BlueCOUGAR environment variables ");
 
-  ROS_INFO_STREAM("ENV_test:"<<getenv("GENICAM_ROOT"));
+//  ROS_INFO_STREAM("ENV_test:"<<getenv("GENICAM_ROOT"));
 
   dev_mgr_.reset(new mvIMPACT::acquire::DeviceManager);
 }
