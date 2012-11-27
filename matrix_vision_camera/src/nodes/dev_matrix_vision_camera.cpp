@@ -87,10 +87,10 @@ MatrixVisionCamera::MatrixVisionCamera() :
 #define xstr(s) str(s)
 #define str(s) #s
 
-//  ret += setenv("GENICAM_ROOT", xstr(GENICAM_ROOT), 1);
-//  ret += setenv("GENICAM_ROOT_V2_3", xstr(GENICAM_ROOT_V2_3), 1);
-//  ret += setenv("GENICAM_GENTL64_PATH", xstr(GENICAM_GENTL64_PATH), 1);
-//  ret += setenv("GENICAM_LOG_CONFIG_V2_3", xstr(GENICAM_LOG_CONFIG_V2_3), 1);
+  ret += setenv("GENICAM_ROOT", xstr(GENICAM_ROOT), 1);
+  ret += setenv("GENICAM_ROOT_V2_3", xstr(GENICAM_ROOT_V2_3), 1);
+  ret += setenv("GENICAM_GENTL64_PATH", xstr(GENICAM_GENTL64_PATH), 1);
+  ret += setenv("GENICAM_LOG_CONFIG_V2_3", xstr(GENICAM_LOG_CONFIG_V2_3), 1);
 
   ROS_WARN_STREAM_COND(ret != 0, "couldn't set BlueCOUGAR environment variables ");
 

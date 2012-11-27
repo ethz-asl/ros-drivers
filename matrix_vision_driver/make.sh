@@ -11,8 +11,8 @@ BLUEFOX_FILE=""
 BLUECOUGAR_FILE=""
 
 API=mvIMPACT_acquire
-VERSION=2.0.11
-BLUEFOX_VERSION=2.0.14
+VERSION=2.0.5
+BLUEFOX_VERSION=2.0.5
 ABI=ABI2
 
 TARGET=$(uname -m)
@@ -56,8 +56,8 @@ tar xf $PACKAGE_DIR/tmp/$BLUECOUGAR_NAME/$BLUECOUGAR_NAME"_"runtime-$VERSION.tar
 
 cd lib
 # lick out devicemanager and prophandling, since this is not device specific
-rm -f libmvDeviceManager* 
-rm -f libMvPropHandling*
+#rm -f libmvDeviceManager* 
+#rm -f libMvPropHandling*
 # create missing symlinks
 ln -fs libmvBlueCOUGAR.so.$VERSION libmvBlueCOUGAR.so
 ln -fs libmvTLIClientGigE.so.$VERSION libmvTLIClientGigE.so
