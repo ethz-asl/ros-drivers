@@ -55,7 +55,7 @@ rosbuild_add_library(${PROJECT_NAME}
     src/libCanon/JpegStreamSaver.cpp
     src/libCanon/Datagram.cpp
 )
-target_link_libraries(${PROJECT_NAME} ${IPP_JPEG} jpeg)
+target_link_libraries(${PROJECT_NAME} ${IPP_JPEG} jpeg rt)
 
 IF(USE_IPP MATCHES yes)
 rosbuild_add_library(${IPP_JPEG}
